@@ -1,6 +1,8 @@
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:record/record.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 
 class VoiceService {
   final FlutterTts tts = FlutterTts();
@@ -10,9 +12,12 @@ class VoiceService {
     final hasPermission = await recorder.hasPermission();
     if (!hasPermission) return "No mic permission";
 
+    final dir = await getTemporaryDirectory();
+    final filePath = '${dir.path}/recording.m4a';
+
     await recorder.start(
       const RecordConfig(),
-      path: 'recording.m4a', // Optional: specify file path
+      path: filePath,
     );
 
     await Future.delayed(const Duration(seconds: 3));

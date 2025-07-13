@@ -1,3 +1,0 @@
-import 'package:lottie/lottie.dart';
-
-Lottie.asset('assets/toolbar_animation.json')
