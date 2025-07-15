@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:lottie/lottie.dart';
 import '../models/draw_line.dart';
 import '../services/websocket_service.dart';
 import '../services/voice_service.dart';
-import '../widgets/color_dot.dart';
 
 enum ToolType { brush, eraser, line, rectangle, circle }
 
@@ -146,6 +146,35 @@ class _DrawingPageState extends State<DrawingPage> {
     }
   }
 
+  void openColorPicker() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Pick a color'),
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: selectedColor,
+            onColorChanged: (color) {
+              setState(() {
+                selectedColor = color;
+                selectedTool = ToolType.brush;
+              });
+            },
+            enableAlpha: false,
+            displayThumbColor: true,
+            showLabel: true,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Done'),
+          )
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     ws.dispose();
@@ -222,26 +251,9 @@ class _DrawingPageState extends State<DrawingPage> {
                           onPressed: () =>
                               setState(() => selectedTool = ToolType.circle),
                         ),
-                        ColorDot(
-                          color: Colors.black,
-                          onTap: () => setState(() {
-                            selectedColor = Colors.black;
-                            selectedTool = ToolType.brush;
-                          }),
-                        ),
-                        ColorDot(
-                          color: Colors.red,
-                          onTap: () => setState(() {
-                            selectedColor = Colors.red;
-                            selectedTool = ToolType.brush;
-                          }),
-                        ),
-                        ColorDot(
-                          color: Colors.yellow,
-                          onTap: () => setState(() {
-                            selectedColor = Colors.yellow;
-                            selectedTool = ToolType.brush;
-                          }),
+                        IconButton(
+                          icon: Icon(Icons.color_lens, color: selectedColor),
+                          onPressed: openColorPicker,
                         ),
                         IconButton(
                           icon: const Icon(Icons.mic),
@@ -273,6 +285,22 @@ class _DrawingPageState extends State<DrawingPage> {
                               setState(() => selectedTool = ToolType.rectangle);
                             } else if (cmd.contains("circle")) {
                               setState(() => selectedTool = ToolType.circle);
+
+                              final size = MediaQuery.of(context).size;
+                              final center = Offset(size.width / 2, size.height / 2);
+                              final radius = 100.0;
+                              final rect = Rect.fromCircle(center: center, radius: radius);
+                              final path = Path()..addOval(rect);
+
+                              final paint = Paint()
+                                ..color = selectedColor
+                                ..strokeWidth = strokeWidth
+                                ..style = PaintingStyle.stroke
+                                ..strokeCap = StrokeCap.round;
+
+                              setState(() {
+                                lines.add(DrawnLine(path: path, paint: paint));
+                              });
                             }
                           },
                         ),

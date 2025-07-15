@@ -3,6 +3,7 @@ import 'package:record/record.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'dart:convert';
 
 class VoiceService {
   final FlutterTts tts = FlutterTts();
@@ -13,29 +14,44 @@ class VoiceService {
     if (!hasPermission) return "No mic permission";
 
     final dir = await getTemporaryDirectory();
-    final filePath = '${dir.path}/recording.m4a';
+    final filePath = '${dir.path}/recording.wav';
 
     await recorder.start(
-      const RecordConfig(),
+      const RecordConfig(encoder: AudioEncoder.wav, sampleRate: 44100),
       path: filePath,
     );
 
     await Future.delayed(const Duration(seconds: 3));
-
     final path = await recorder.stop();
 
     if (path == null) return "No audio";
 
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('YOUR_GOOGLE_SPEECH_API_ENDPOINT'),
+    final bytes = await File(path).readAsBytes();
+    final base64Audio = base64Encode(bytes);
+
+    final response = await http.post(
+      Uri.parse('https://speech.googleapis.com/v1/speech:recognize?key=YOUR_GOOGLE_API_KEY'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        "config": {
+          "encoding": "LINEAR16",
+          "sampleRateHertz": 44100,
+          "languageCode": "en-US"
+        },
+        "audio": {
+          "content": base64Audio
+        }
+      }),
     );
-    request.files.add(await http.MultipartFile.fromPath('file', path));
 
-    final response = await request.send();
-    final responseBody = await response.stream.bytesToString();
-
-    return responseBody.contains("red") ? "red" : "unknown";
+    if (response.statusCode == 200) {
+      final result = jsonDecode(response.body);
+      final transcript = result['results']?[0]?['alternatives']?[0]?['transcript'];
+      return transcript?.toLowerCase() ?? "unknown";
+    } else {
+      print("Google Speech API error: ${response.body}");
+      return "error";
+    }
   }
 
   Future<void> speak(String text) async {
