@@ -10,32 +10,43 @@ class VoiceService {
   final AudioRecorder recorder = AudioRecorder();
 
   Future<String> recordAndRecognize() async {
+    // Check microphone permission
     final hasPermission = await recorder.hasPermission();
     if (!hasPermission) return "No mic permission";
 
+    // Prepare file path
     final dir = await getTemporaryDirectory();
     final filePath = '${dir.path}/recording.wav';
 
+    // Start recording with mono channel and 16kHz sample rate
     await recorder.start(
-      const RecordConfig(encoder: AudioEncoder.wav, sampleRate: 44100),
+      const RecordConfig(
+          encoder: AudioEncoder.wav,
+          sampleRate: 16000,     // ✅ Required by Google API
+          numChannels: 1,        // ✅ Must be mono
+          bitRate: 256000        // Optional: ensure good quality
+      ),
       path: filePath,
     );
 
+    // Record for 3 seconds
     await Future.delayed(const Duration(seconds: 3));
     final path = await recorder.stop();
 
-    if (path == null) return "No audio";
+    if (path == null) return "No audio recorded";
 
+    // Read and encode the file
     final bytes = await File(path).readAsBytes();
     final base64Audio = base64Encode(bytes);
 
+    // Send to Google Speech-to-Text API
     final response = await http.post(
-      Uri.parse('https://speech.googleapis.com/v1/speech:recognize?key=YOUR_GOOGLE_API_KEY'),
+      Uri.parse('https://speech.googleapis.com/v1/speech:recognize?key=GOOGLE_API_KEY'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         "config": {
-          "encoding": "LINEAR16",
-          "sampleRateHertz": 44100,
+          "encoding": "LINEAR16",       // ✅ Format must match recording
+          "sampleRateHertz": 16000,     // ✅ Must match sample rate
           "languageCode": "en-US"
         },
         "audio": {
@@ -44,6 +55,7 @@ class VoiceService {
       }),
     );
 
+    // Handle response
     if (response.statusCode == 200) {
       final result = jsonDecode(response.body);
       final transcript = result['results']?[0]?['alternatives']?[0]?['transcript'];

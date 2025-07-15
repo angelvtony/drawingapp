@@ -60,6 +60,35 @@ class _DrawingPageState extends State<DrawingPage> {
     });
   }
 
+  void drawShape(ToolType shape) {
+    final size = MediaQuery.of(context).size;
+    final center = Offset(size.width / 2, size.height / 2);
+    final path = Path();
+
+    switch (shape) {
+      case ToolType.circle:
+        final rect = Rect.fromCircle(center: center, radius: 100.0);
+        path.addOval(rect);
+        break;
+      case ToolType.rectangle:
+        final rect = Rect.fromCenter(center: center, width: 200, height: 100);
+        path.addRect(rect);
+        break;
+      default:
+        return;
+    }
+
+    final paint = Paint()
+      ..color = selectedColor
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    setState(() {
+      lines.add(DrawnLine(path: path, paint: paint));
+    });
+  }
+
   void startDrawing(Offset point) {
     setState(() {
       startPoint = point;
@@ -314,51 +343,37 @@ class _DrawingPageState extends State<DrawingPage> {
                 title: const Text('Voice Command'),
                 onTap: () async {
                   Navigator.pop(context);
+
                   final command = await voice.recordAndRecognize();
+                  debugPrint("🎤 Transcribed: $command");
                   voice.speak("Command: $command");
 
                   final cmd = command.toLowerCase();
-                  if (cmd.contains("red")) {
-                    setState(() {
+
+                  setState(() {
+                    if (cmd.contains("red")) {
                       selectedColor = Colors.red;
                       selectedTool = ToolType.brush;
-                    });
-                  } else if (cmd.contains("black")) {
-                    setState(() {
+                    } else if (cmd.contains("black")) {
                       selectedColor = Colors.black;
                       selectedTool = ToolType.brush;
-                    });
-                  } else if (cmd.contains("yellow")) {
-                    setState(() {
+                    } else if (cmd.contains("yellow")) {
                       selectedColor = Colors.yellow;
                       selectedTool = ToolType.brush;
-                    });
-                  } else if (cmd.contains("eraser")) {
-                    setState(() => selectedTool = ToolType.eraser);
-                  } else if (cmd.contains("line")) {
-                    setState(() => selectedTool = ToolType.line);
-                  } else if (cmd.contains("rectangle")) {
-                    setState(() => selectedTool = ToolType.rectangle);
-                  } else if (cmd.contains("circle")) {
-                    setState(() => selectedTool = ToolType.circle);
-
-                    final size = MediaQuery.of(context).size;
-                    final center = Offset(size.width / 2, size.height / 2);
-                    final radius = 100.0;
-                    final rect =
-                    Rect.fromCircle(center: center, radius: radius);
-                    final path = Path()..addOval(rect);
-
-                    final paint = Paint()
-                      ..color = selectedColor
-                      ..strokeWidth = strokeWidth
-                      ..style = PaintingStyle.stroke
-                      ..strokeCap = StrokeCap.round;
-
-                    setState(() {
-                      lines.add(DrawnLine(path: path, paint: paint));
-                    });
-                  }
+                    } else if (cmd.contains("eraser")) {
+                      selectedTool = ToolType.eraser;
+                    } else if (cmd.contains("line")) {
+                      selectedTool = ToolType.line;
+                    } else if (cmd.contains("rectangle")) {
+                      selectedTool = ToolType.rectangle;
+                      drawShape(ToolType.rectangle);
+                    } else if (cmd.contains("circle")) {
+                      selectedTool = ToolType.circle;
+                      drawShape(ToolType.circle);
+                    } else {
+                      voice.speak("Sorry, I didn't understand that.");
+                    }
+                  });
                 },
               ),
             ],
@@ -377,7 +392,6 @@ class _DrawingPageState extends State<DrawingPage> {
               size: Size.infinite,
             ),
           ),
-          // ✅ Fixed FloatingActionButton inside a Builder
           Positioned(
             top: 50,
             left: 10,
