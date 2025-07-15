@@ -174,106 +174,108 @@ class _DrawingPageState extends State<DrawingPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 10),
               color: Colors.white.withOpacity(0.8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  IconButton(icon: const Icon(Icons.undo), onPressed: undo),
-                  IconButton(icon: const Icon(Icons.redo), onPressed: redo),
-                  IconButton(
-                    icon: Icon(Icons.brush,
-                        color: selectedTool == ToolType.brush
-                            ? selectedColor
-                            : Colors.grey),
-                    onPressed: () =>
-                        setState(() => selectedTool = ToolType.brush),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.auto_fix_normal,
-                        color: selectedTool == ToolType.eraser
-                            ? selectedColor
-                            : Colors.grey),
-                    onPressed: () =>
-                        setState(() => selectedTool = ToolType.eraser),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.show_chart,
-                        color: selectedTool == ToolType.line
-                            ? selectedColor
-                            : Colors.grey),
-                    onPressed: () =>
-                        setState(() => selectedTool = ToolType.line),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.crop_square,
-                        color: selectedTool == ToolType.rectangle
-                            ? selectedColor
-                            : Colors.grey),
-                    onPressed: () =>
-                        setState(() => selectedTool = ToolType.rectangle),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.circle_outlined,
-                        color: selectedTool == ToolType.circle
-                            ? selectedColor
-                            : Colors.grey),
-                    onPressed: () =>
-                        setState(() => selectedTool = ToolType.circle),
-                  ),
-                  ColorDot(
-                    color: Colors.black,
-                    onTap: () => setState(() {
-                      selectedColor = Colors.black;
-                      selectedTool = ToolType.brush;
-                    }),
-                  ),
-                  ColorDot(
-                    color: Colors.red,
-                    onTap: () => setState(() {
-                      selectedColor = Colors.red;
-                      selectedTool = ToolType.brush;
-                    }),
-                  ),
-                  ColorDot(
-                    color: Colors.yellow,
-                    onTap: () => setState(() {
-                      selectedColor = Colors.yellow;
-                      selectedTool = ToolType.brush;
-                    }),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.mic),
-                    onPressed: () async {
-                      final command = await voice.recordAndRecognize();
-                      voice.speak("Command: $command");
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    IconButton(icon: const Icon(Icons.undo), onPressed: undo),
+                    IconButton(icon: const Icon(Icons.redo), onPressed: redo),
+                    IconButton(
+                      icon: Icon(Icons.brush,
+                          color: selectedTool == ToolType.brush
+                              ? selectedColor
+                              : Colors.grey),
+                      onPressed: () =>
+                          setState(() => selectedTool = ToolType.brush),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.auto_fix_normal,
+                          color: selectedTool == ToolType.eraser
+                              ? selectedColor
+                              : Colors.grey),
+                      onPressed: () =>
+                          setState(() => selectedTool = ToolType.eraser),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.show_chart,
+                          color: selectedTool == ToolType.line
+                              ? selectedColor
+                              : Colors.grey),
+                      onPressed: () =>
+                          setState(() => selectedTool = ToolType.line),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.crop_square,
+                          color: selectedTool == ToolType.rectangle
+                              ? selectedColor
+                              : Colors.grey),
+                      onPressed: () =>
+                          setState(() => selectedTool = ToolType.rectangle),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.circle_outlined,
+                          color: selectedTool == ToolType.circle
+                              ? selectedColor
+                              : Colors.grey),
+                      onPressed: () =>
+                          setState(() => selectedTool = ToolType.circle),
+                    ),
+                    ColorDot(
+                      color: Colors.black,
+                      onTap: () => setState(() {
+                        selectedColor = Colors.black;
+                        selectedTool = ToolType.brush;
+                      }),
+                    ),
+                    ColorDot(
+                      color: Colors.red,
+                      onTap: () => setState(() {
+                        selectedColor = Colors.red;
+                        selectedTool = ToolType.brush;
+                      }),
+                    ),
+                    ColorDot(
+                      color: Colors.yellow,
+                      onTap: () => setState(() {
+                        selectedColor = Colors.yellow;
+                        selectedTool = ToolType.brush;
+                      }),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.mic),
+                      onPressed: () async {
+                        final command = await voice.recordAndRecognize();
+                        voice.speak("Command: $command");
 
-                      final cmd = command.toLowerCase();
-                      if (cmd.contains("red")) {
-                        setState(() {
-                          selectedColor = Colors.red;
-                          selectedTool = ToolType.brush;
-                        });
-                      } else if (cmd.contains("black")) {
-                        setState(() {
-                          selectedColor = Colors.black;
-                          selectedTool = ToolType.brush;
-                        });
-                      } else if (cmd.contains("yellow")) {
-                        setState(() {
-                          selectedColor = Colors.yellow;
-                          selectedTool = ToolType.brush;
-                        });
-                      } else if (cmd.contains("eraser")) {
-                        setState(() => selectedTool = ToolType.eraser);
-                      } else if (cmd.contains("line")) {
-                        setState(() => selectedTool = ToolType.line);
-                      } else if (cmd.contains("rectangle")) {
-                        setState(() => selectedTool = ToolType.rectangle);
-                      } else if (cmd.contains("circle")) {
-                        setState(() => selectedTool = ToolType.circle);
-                      }
-                    },
-                  ),
-                ],
+                        final cmd = command.toLowerCase();
+                        if (cmd.contains("red")) {
+                          setState(() {
+                            selectedColor = Colors.red;
+                            selectedTool = ToolType.brush;
+                          });
+                        } else if (cmd.contains("black")) {
+                          setState(() {
+                            selectedColor = Colors.black;
+                            selectedTool = ToolType.brush;
+                          });
+                        } else if (cmd.contains("yellow")) {
+                          setState(() {
+                            selectedColor = Colors.yellow;
+                            selectedTool = ToolType.brush;
+                          });
+                        } else if (cmd.contains("eraser")) {
+                          setState(() => selectedTool = ToolType.eraser);
+                        } else if (cmd.contains("line")) {
+                          setState(() => selectedTool = ToolType.line);
+                        } else if (cmd.contains("rectangle")) {
+                          setState(() => selectedTool = ToolType.rectangle);
+                        } else if (cmd.contains("circle")) {
+                          setState(() => selectedTool = ToolType.circle);
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
