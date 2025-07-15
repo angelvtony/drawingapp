@@ -1,3 +1,4 @@
+// All necessary imports
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -184,6 +185,186 @@ class _DrawingPageState extends State<DrawingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: Drawer(
+        child: Container(
+          color: Colors.white.withOpacity(0.85),
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              const DrawerHeader(
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                ),
+                child: Text(
+                  'Drawing Tools',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.undo),
+                title: const Text('Undo'),
+                onTap: () {
+                  undo();
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.redo),
+                title: const Text('Redo'),
+                onTap: () {
+                  redo();
+                  Navigator.pop(context);
+                },
+              ),
+              Divider(),
+              ListTile(
+                leading: Icon(Icons.brush,
+                    color: selectedTool == ToolType.brush
+                        ? selectedColor
+                        : Colors.grey),
+                title: const Text('Brush'),
+                onTap: () {
+                  setState(() => selectedTool = ToolType.brush);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.auto_fix_normal,
+                    color: selectedTool == ToolType.eraser
+                        ? selectedColor
+                        : Colors.grey),
+                title: const Text('Eraser'),
+                onTap: () {
+                  setState(() => selectedTool = ToolType.eraser);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.show_chart,
+                    color: selectedTool == ToolType.line
+                        ? selectedColor
+                        : Colors.grey),
+                title: const Text('Line'),
+                onTap: () {
+                  setState(() => selectedTool = ToolType.line);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.crop_square,
+                    color: selectedTool == ToolType.rectangle
+                        ? selectedColor
+                        : Colors.grey),
+                title: const Text('Rectangle'),
+                onTap: () {
+                  setState(() => selectedTool = ToolType.rectangle);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.circle_outlined,
+                    color: selectedTool == ToolType.circle
+                        ? selectedColor
+                        : Colors.grey),
+                title: const Text('Circle'),
+                onTap: () {
+                  setState(() => selectedTool = ToolType.circle);
+                  Navigator.pop(context);
+                },
+              ),
+              Divider(),
+              ListTile(
+                leading: Icon(Icons.color_lens, color: selectedColor),
+                title: const Text('Color Picker'),
+                onTap: () {
+                  Navigator.pop(context);
+                  openColorPicker();
+                },
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("Thickness:"),
+                    Slider(
+                      value: strokeWidth,
+                      min: 1.0,
+                      max: 20.0,
+                      divisions: 19,
+                      label: strokeWidth.toStringAsFixed(1),
+                      onChanged: (value) {
+                        setState(() {
+                          strokeWidth = value;
+                        });
+                      },
+                    ),
+                    Center(
+                      child: Text("${strokeWidth.toStringAsFixed(1)}"),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(),
+              ListTile(
+                leading: const Icon(Icons.mic),
+                title: const Text('Voice Command'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final command = await voice.recordAndRecognize();
+                  voice.speak("Command: $command");
+
+                  final cmd = command.toLowerCase();
+                  if (cmd.contains("red")) {
+                    setState(() {
+                      selectedColor = Colors.red;
+                      selectedTool = ToolType.brush;
+                    });
+                  } else if (cmd.contains("black")) {
+                    setState(() {
+                      selectedColor = Colors.black;
+                      selectedTool = ToolType.brush;
+                    });
+                  } else if (cmd.contains("yellow")) {
+                    setState(() {
+                      selectedColor = Colors.yellow;
+                      selectedTool = ToolType.brush;
+                    });
+                  } else if (cmd.contains("eraser")) {
+                    setState(() => selectedTool = ToolType.eraser);
+                  } else if (cmd.contains("line")) {
+                    setState(() => selectedTool = ToolType.line);
+                  } else if (cmd.contains("rectangle")) {
+                    setState(() => selectedTool = ToolType.rectangle);
+                  } else if (cmd.contains("circle")) {
+                    setState(() => selectedTool = ToolType.circle);
+
+                    final size = MediaQuery.of(context).size;
+                    final center = Offset(size.width / 2, size.height / 2);
+                    final radius = 100.0;
+                    final rect =
+                    Rect.fromCircle(center: center, radius: radius);
+                    final path = Path()..addOval(rect);
+
+                    final paint = Paint()
+                      ..color = selectedColor
+                      ..strokeWidth = strokeWidth
+                      ..style = PaintingStyle.stroke
+                      ..strokeCap = StrokeCap.round;
+
+                    setState(() {
+                      lines.add(DrawnLine(path: path, paint: paint));
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
       body: Stack(
         children: [
           GestureDetector(
@@ -196,141 +377,17 @@ class _DrawingPageState extends State<DrawingPage> {
               size: Size.infinite,
             ),
           ),
+          // ✅ Fixed FloatingActionButton inside a Builder
           Positioned(
             top: 50,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              color: Colors.white.withOpacity(0.85),
-              child: Column(
-                children: [
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        IconButton(icon: const Icon(Icons.undo), onPressed: undo),
-                        IconButton(icon: const Icon(Icons.redo), onPressed: redo),
-                        IconButton(
-                          icon: Icon(Icons.brush,
-                              color: selectedTool == ToolType.brush
-                                  ? selectedColor
-                                  : Colors.grey),
-                          onPressed: () =>
-                              setState(() => selectedTool = ToolType.brush),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.auto_fix_normal,
-                              color: selectedTool == ToolType.eraser
-                                  ? selectedColor
-                                  : Colors.grey),
-                          onPressed: () =>
-                              setState(() => selectedTool = ToolType.eraser),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.show_chart,
-                              color: selectedTool == ToolType.line
-                                  ? selectedColor
-                                  : Colors.grey),
-                          onPressed: () =>
-                              setState(() => selectedTool = ToolType.line),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.crop_square,
-                              color: selectedTool == ToolType.rectangle
-                                  ? selectedColor
-                                  : Colors.grey),
-                          onPressed: () =>
-                              setState(() => selectedTool = ToolType.rectangle),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.circle_outlined,
-                              color: selectedTool == ToolType.circle
-                                  ? selectedColor
-                                  : Colors.grey),
-                          onPressed: () =>
-                              setState(() => selectedTool = ToolType.circle),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.color_lens, color: selectedColor),
-                          onPressed: openColorPicker,
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.mic),
-                          onPressed: () async {
-                            final command = await voice.recordAndRecognize();
-                            voice.speak("Command: $command");
-
-                            final cmd = command.toLowerCase();
-                            if (cmd.contains("red")) {
-                              setState(() {
-                                selectedColor = Colors.red;
-                                selectedTool = ToolType.brush;
-                              });
-                            } else if (cmd.contains("black")) {
-                              setState(() {
-                                selectedColor = Colors.black;
-                                selectedTool = ToolType.brush;
-                              });
-                            } else if (cmd.contains("yellow")) {
-                              setState(() {
-                                selectedColor = Colors.yellow;
-                                selectedTool = ToolType.brush;
-                              });
-                            } else if (cmd.contains("eraser")) {
-                              setState(() => selectedTool = ToolType.eraser);
-                            } else if (cmd.contains("line")) {
-                              setState(() => selectedTool = ToolType.line);
-                            } else if (cmd.contains("rectangle")) {
-                              setState(() => selectedTool = ToolType.rectangle);
-                            } else if (cmd.contains("circle")) {
-                              setState(() => selectedTool = ToolType.circle);
-
-                              final size = MediaQuery.of(context).size;
-                              final center = Offset(size.width / 2, size.height / 2);
-                              final radius = 100.0;
-                              final rect = Rect.fromCircle(center: center, radius: radius);
-                              final path = Path()..addOval(rect);
-
-                              final paint = Paint()
-                                ..color = selectedColor
-                                ..strokeWidth = strokeWidth
-                                ..style = PaintingStyle.stroke
-                                ..strokeCap = StrokeCap.round;
-
-                              setState(() {
-                                lines.add(DrawnLine(path: path, paint: paint));
-                              });
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Row(
-                      children: [
-                        const Text("Thickness: "),
-                        Expanded(
-                          child: Slider(
-                            value: strokeWidth,
-                            min: 1.0,
-                            max: 20.0,
-                            divisions: 19,
-                            label: strokeWidth.toStringAsFixed(1),
-                            onChanged: (value) {
-                              setState(() {
-                                strokeWidth = value;
-                              });
-                            },
-                          ),
-                        ),
-                        Text("${strokeWidth.toStringAsFixed(1)}"),
-                      ],
-                    ),
-                  ),
-                ],
+            left: 10,
+            child: Builder(
+              builder: (context) => FloatingActionButton(
+                mini: true,
+                child: const Icon(Icons.menu),
+                onPressed: () {
+                  Scaffold.of(context).openDrawer();
+                },
               ),
             ),
           ),
