@@ -6,6 +6,8 @@ import '../services/websocket_service.dart';
 import '../services/voice_service.dart';
 import '../widgets/color_dot.dart';
 
+enum ToolType { brush, eraser, line, rectangle, circle }
+
 class DrawingPage extends StatefulWidget {
   const DrawingPage({super.key});
 
@@ -19,9 +21,11 @@ class _DrawingPageState extends State<DrawingPage> {
 
   Color selectedColor = Colors.black;
   double strokeWidth = 4.0;
-  bool isEraser = false;
+  ToolType selectedTool = ToolType.brush;
+
   Path? currentPath;
   Paint? currentPaint;
+  Offset? startPoint;
 
   late WebSocketService ws;
   late VoiceService voice;
@@ -57,47 +61,73 @@ class _DrawingPageState extends State<DrawingPage> {
 
   void startDrawing(Offset point) {
     setState(() {
+      startPoint = point;
       currentPath = Path()..moveTo(point.dx, point.dy);
       currentPaint = Paint()
-        ..color = isEraser ? Colors.white : selectedColor
+        ..color = selectedTool == ToolType.eraser ? Colors.white : selectedColor
         ..strokeWidth = strokeWidth
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round;
 
-      lines.add(DrawnLine(path: currentPath!, paint: currentPaint!));
+      if (selectedTool == ToolType.brush || selectedTool == ToolType.eraser) {
+        lines.add(DrawnLine(path: currentPath!, paint: currentPaint!));
+      }
     });
   }
 
   void updateDrawing(Offset point) {
-    if (currentPath == null) return;
+    if (startPoint == null) return;
 
     setState(() {
-      currentPath!.lineTo(point.dx, point.dy);
+      if (selectedTool == ToolType.brush || selectedTool == ToolType.eraser) {
+        currentPath!.lineTo(point.dx, point.dy);
+      } else {
+        currentPath = Path();
+        switch (selectedTool) {
+          case ToolType.line:
+            currentPath!.moveTo(startPoint!.dx, startPoint!.dy);
+            currentPath!.lineTo(point.dx, point.dy);
+            break;
+          case ToolType.rectangle:
+            currentPath!.addRect(Rect.fromPoints(startPoint!, point));
+            break;
+          case ToolType.circle:
+            currentPath!.addOval(Rect.fromPoints(startPoint!, point));
+            break;
+          default:
+            break;
+        }
+      }
     });
 
-    // Send drawing data through WebSocket
-    final points = <List<double>>[];
-    final metrics = currentPath!.computeMetrics();
-
-    for (final metric in metrics) {
-      for (double t = 0; t < metric.length; t += 1.0) {
-        final pos = metric.getTangentForOffset(t)?.position;
-        if (pos != null) points.add([pos.dx, pos.dy]);
+    if (selectedTool == ToolType.brush) {
+      final points = <List<double>>[];
+      final metrics = currentPath!.computeMetrics();
+      for (final metric in metrics) {
+        for (double t = 0; t < metric.length; t += 1.0) {
+          final pos = metric.getTangentForOffset(t)?.position;
+          if (pos != null) points.add([pos.dx, pos.dy]);
+        }
       }
-    }
 
-    if (points.isNotEmpty) {
-      ws.sendDrawing({
-        'points': points,
-        'color': selectedColor.value.toString(),
-        'width': strokeWidth,
-      });
+      if (points.isNotEmpty) {
+        ws.sendDrawing({
+          'points': points,
+          'color': selectedColor.value.toString(),
+          'width': strokeWidth,
+        });
+      }
     }
   }
 
   void endDrawing() {
+    if ((selectedTool != ToolType.brush && selectedTool != ToolType.eraser) &&
+        currentPath != null) {
+      lines.add(DrawnLine(path: currentPath!, paint: currentPaint!));
+    }
     currentPath = null;
     currentPaint = null;
+    startPoint = null;
   }
 
   void undo() {
@@ -133,7 +163,7 @@ class _DrawingPageState extends State<DrawingPage> {
             onPanEnd: (details) => endDrawing(),
             behavior: HitTestBehavior.opaque,
             child: CustomPaint(
-              painter: DrawingPainter(lines),
+              painter: DrawingPainter(lines, currentPath, currentPaint),
               size: Size.infinite,
             ),
           ),
@@ -143,39 +173,71 @@ class _DrawingPageState extends State<DrawingPage> {
             right: 0,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 10),
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withOpacity(0.8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  IconButton(icon: Icon(Icons.undo), onPressed: undo),
-                  IconButton(icon: Icon(Icons.redo), onPressed: redo),
+                  IconButton(icon: const Icon(Icons.undo), onPressed: undo),
+                  IconButton(icon: const Icon(Icons.redo), onPressed: redo),
                   IconButton(
-                    icon: Icon(Icons.brush, color: isEraser ? Colors.grey : selectedColor),
-                    onPressed: () => setState(() => isEraser = false),
+                    icon: Icon(Icons.brush,
+                        color: selectedTool == ToolType.brush
+                            ? selectedColor
+                            : Colors.grey),
+                    onPressed: () =>
+                        setState(() => selectedTool = ToolType.brush),
                   ),
                   IconButton(
-                    icon: Icon(Icons.auto_fix_normal, color: isEraser ? selectedColor : Colors.grey),
-                    onPressed: () => setState(() => isEraser = true),
+                    icon: Icon(Icons.auto_fix_normal,
+                        color: selectedTool == ToolType.eraser
+                            ? selectedColor
+                            : Colors.grey),
+                    onPressed: () =>
+                        setState(() => selectedTool = ToolType.eraser),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.show_chart,
+                        color: selectedTool == ToolType.line
+                            ? selectedColor
+                            : Colors.grey),
+                    onPressed: () =>
+                        setState(() => selectedTool = ToolType.line),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.crop_square,
+                        color: selectedTool == ToolType.rectangle
+                            ? selectedColor
+                            : Colors.grey),
+                    onPressed: () =>
+                        setState(() => selectedTool = ToolType.rectangle),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.circle_outlined,
+                        color: selectedTool == ToolType.circle
+                            ? selectedColor
+                            : Colors.grey),
+                    onPressed: () =>
+                        setState(() => selectedTool = ToolType.circle),
                   ),
                   ColorDot(
                     color: Colors.black,
                     onTap: () => setState(() {
                       selectedColor = Colors.black;
-                      isEraser = false;
+                      selectedTool = ToolType.brush;
                     }),
                   ),
                   ColorDot(
                     color: Colors.red,
                     onTap: () => setState(() {
                       selectedColor = Colors.red;
-                      isEraser = false;
+                      selectedTool = ToolType.brush;
                     }),
                   ),
                   ColorDot(
                     color: Colors.yellow,
                     onTap: () => setState(() {
                       selectedColor = Colors.yellow;
-                      isEraser = false;
+                      selectedTool = ToolType.brush;
                     }),
                   ),
                   IconButton(
@@ -183,13 +245,31 @@ class _DrawingPageState extends State<DrawingPage> {
                     onPressed: () async {
                       final command = await voice.recordAndRecognize();
                       voice.speak("Command: $command");
-                      if (command.toLowerCase().contains("red")) {
+
+                      final cmd = command.toLowerCase();
+                      if (cmd.contains("red")) {
                         setState(() {
                           selectedColor = Colors.red;
-                          isEraser = false;
+                          selectedTool = ToolType.brush;
                         });
-                      } else if (command.toLowerCase().contains("eraser")) {
-                        setState(() => isEraser = true);
+                      } else if (cmd.contains("black")) {
+                        setState(() {
+                          selectedColor = Colors.black;
+                          selectedTool = ToolType.brush;
+                        });
+                      } else if (cmd.contains("yellow")) {
+                        setState(() {
+                          selectedColor = Colors.yellow;
+                          selectedTool = ToolType.brush;
+                        });
+                      } else if (cmd.contains("eraser")) {
+                        setState(() => selectedTool = ToolType.eraser);
+                      } else if (cmd.contains("line")) {
+                        setState(() => selectedTool = ToolType.line);
+                      } else if (cmd.contains("rectangle")) {
+                        setState(() => selectedTool = ToolType.rectangle);
+                      } else if (cmd.contains("circle")) {
+                        setState(() => selectedTool = ToolType.circle);
                       }
                     },
                   ),
@@ -216,12 +296,18 @@ class _DrawingPageState extends State<DrawingPage> {
 
 class DrawingPainter extends CustomPainter {
   final List<DrawnLine> lines;
-  DrawingPainter(this.lines);
+  final Path? currentPath;
+  final Paint? currentPaint;
+
+  DrawingPainter(this.lines, this.currentPath, this.currentPaint);
 
   @override
   void paint(Canvas canvas, Size size) {
     for (final line in lines) {
       canvas.drawPath(line.path, line.paint);
+    }
+    if (currentPath != null && currentPaint != null) {
+      canvas.drawPath(currentPath!, currentPaint!);
     }
   }
 
