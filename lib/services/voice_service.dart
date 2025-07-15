@@ -45,8 +45,8 @@ class VoiceService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         "config": {
-          "encoding": "LINEAR16",       // ✅ Format must match recording
-          "sampleRateHertz": 16000,     // ✅ Must match sample rate
+          "encoding": "LINEAR16",
+          "sampleRateHertz": 16000,
           "languageCode": "en-US"
         },
         "audio": {
@@ -55,7 +55,6 @@ class VoiceService {
       }),
     );
 
-    // Handle response
     if (response.statusCode == 200) {
       final result = jsonDecode(response.body);
       final transcript = result['results']?[0]?['alternatives']?[0]?['transcript'];
