@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import '../models/draw_line.dart';
+import '../services/db_helper.dart';
 import '../widgets/DrawingToolsDrawer.dart';
 import '../widgets/drawing_painter.dart';
 
 class DrawingPage extends StatefulWidget {
   const DrawingPage({super.key});
-
   @override
   State<DrawingPage> createState() => _DrawingPageState();
 }
@@ -14,7 +14,6 @@ class DrawingPage extends StatefulWidget {
 class _DrawingPageState extends State<DrawingPage> {
   List<DrawnLine> lines = [];
   List<DrawnLine> undoStack = [];
-
   Color selectedColor = Colors.black;
   double strokeWidth = 4.0;
   ToolType selectedTool = ToolType.brush;
@@ -23,69 +22,78 @@ class _DrawingPageState extends State<DrawingPage> {
   Paint? currentPaint;
   Offset? startPoint;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadLines();
+  }
+
+  Future<void> _loadLines() async {
+    final saved = await DBHelper.loadLines();
+    setState(() => lines = saved);
+  }
+
+  Future<void> _saveLines() async {
+    await DBHelper.saveLines(lines);
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Drawing saved locally')));
+  }
+
   void drawShape(ToolType shape) {
     final size = MediaQuery.of(context).size;
     final center = Offset(size.width / 2, size.height / 2);
     final path = Path();
-
     switch (shape) {
       case ToolType.circle:
-        final rect = Rect.fromCircle(center: center, radius: 100.0);
-        path.addOval(rect);
+        path.addOval(Rect.fromCircle(center: center, radius: 100));
         break;
       case ToolType.rectangle:
-        final rect = Rect.fromCenter(center: center, width: 200, height: 100);
-        path.addRect(rect);
+        path.addRect(Rect.fromCenter(center: center, width: 200, height: 100));
         break;
-      default:
-        return;
+      default: return;
     }
-
     final paint = Paint()
       ..color = selectedColor
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-
     setState(() {
       lines.add(DrawnLine(path: path, paint: paint));
     });
+    _saveLines();
   }
 
-  void startDrawing(Offset point) {
-    setState(() {
-      startPoint = point;
-      currentPath = Path()..moveTo(point.dx, point.dy);
-      currentPaint = Paint()
-        ..color = selectedTool == ToolType.eraser ? Colors.white : selectedColor
-        ..strokeWidth = strokeWidth
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-
-      if (selectedTool == ToolType.brush || selectedTool == ToolType.eraser) {
-        lines.add(DrawnLine(path: currentPath!, paint: currentPaint!));
-      }
-    });
+  void startDrawing(Offset pt) {
+    startPoint = pt;
+    currentPath = Path()..moveTo(pt.dx, pt.dy);
+    currentPaint = Paint()
+      ..color = selectedTool == ToolType.eraser ? Colors.white : selectedColor
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    if (selectedTool == ToolType.brush || selectedTool == ToolType.eraser) {
+      lines.add(DrawnLine(path: currentPath!, paint: currentPaint!));
+    }
+    undoStack.clear();
   }
 
-  void updateDrawing(Offset point) {
+  void updateDrawing(Offset pt) {
     if (startPoint == null) return;
-
     setState(() {
       if (selectedTool == ToolType.brush || selectedTool == ToolType.eraser) {
-        currentPath!.lineTo(point.dx, point.dy);
+        currentPath!.lineTo(pt.dx, pt.dy);
       } else {
         currentPath = Path();
         switch (selectedTool) {
           case ToolType.line:
             currentPath!.moveTo(startPoint!.dx, startPoint!.dy);
-            currentPath!.lineTo(point.dx, point.dy);
+            currentPath!.lineTo(pt.dx, pt.dy);
             break;
           case ToolType.rectangle:
-            currentPath!.addRect(Rect.fromPoints(startPoint!, point));
+            currentPath!.addRect(Rect.fromPoints(startPoint!, pt));
             break;
           case ToolType.circle:
-            currentPath!.addOval(Rect.fromPoints(startPoint!, point));
+            currentPath!.addOval(Rect.fromPoints(startPoint!, pt));
             break;
           default:
             break;
@@ -95,13 +103,15 @@ class _DrawingPageState extends State<DrawingPage> {
   }
 
   void endDrawing() {
-    if ((selectedTool != ToolType.brush && selectedTool != ToolType.eraser) &&
-        currentPath != null) {
+    if (currentPath != null &&
+        selectedTool != ToolType.brush &&
+        selectedTool != ToolType.eraser) {
       lines.add(DrawnLine(path: currentPath!, paint: currentPaint!));
     }
     currentPath = null;
     currentPaint = null;
     startPoint = null;
+    _saveLines();
   }
 
   void undo() {
@@ -109,6 +119,7 @@ class _DrawingPageState extends State<DrawingPage> {
       setState(() {
         undoStack.add(lines.removeLast());
       });
+      _saveLines();
     }
   }
 
@@ -117,6 +128,7 @@ class _DrawingPageState extends State<DrawingPage> {
       setState(() {
         lines.add(undoStack.removeLast());
       });
+      _saveLines();
     }
   }
 
@@ -127,12 +139,12 @@ class _DrawingPageState extends State<DrawingPage> {
         selectedTool: selectedTool,
         selectedColor: selectedColor,
         strokeWidth: strokeWidth,
-        onToolSelected: (tool) => setState(() => selectedTool = tool),
-        onColorSelected: (color) => setState(() {
-          selectedColor = color;
+        onToolSelected: (t) => setState(() => selectedTool = t),
+        onColorSelected: (c) => setState(() {
+          selectedColor = c;
           selectedTool = ToolType.brush;
         }),
-        onStrokeWidthChanged: (width) => setState(() => strokeWidth = width),
+        onStrokeWidthChanged: (w) => setState(() => strokeWidth = w),
         onUndo: undo,
         onRedo: redo,
         onShapeDrawn: drawShape,
@@ -140,9 +152,9 @@ class _DrawingPageState extends State<DrawingPage> {
       body: Stack(
         children: [
           GestureDetector(
-            onPanStart: (details) => startDrawing(details.localPosition),
-            onPanUpdate: (details) => updateDrawing(details.localPosition),
-            onPanEnd: (details) => endDrawing(),
+            onPanStart: (d) => startDrawing(d.localPosition),
+            onPanUpdate: (d) => updateDrawing(d.localPosition),
+            onPanEnd: (d) => endDrawing(),
             behavior: HitTestBehavior.opaque,
             child: CustomPaint(
               painter: DrawingPainter(lines, currentPath, currentPaint),
@@ -153,12 +165,10 @@ class _DrawingPageState extends State<DrawingPage> {
             top: 50,
             left: 10,
             child: Builder(
-              builder: (context) => FloatingActionButton(
+              builder: (ctx) => FloatingActionButton(
                 mini: true,
                 child: const Icon(Icons.menu),
-                onPressed: () {
-                  Scaffold.of(context).openDrawer();
-                },
+                onPressed: () => Scaffold.of(ctx).openDrawer(),
               ),
             ),
           ),
@@ -169,8 +179,16 @@ class _DrawingPageState extends State<DrawingPage> {
             child: Lottie.network(
               'https://assets7.lottiefiles.com/packages/lf20_tutvdkg0.json',
               height: 100,
-              errorBuilder: (context, error, stackTrace) =>
+              errorBuilder: (c, e, st) =>
               const Icon(Icons.error, size: 50, color: Colors.red),
+            ),
+          ),
+          Positioned(
+            bottom: 120,
+            right: 20,
+            child: FloatingActionButton(
+              child: const Icon(Icons.save),
+              onPressed: _saveLines,
             ),
           ),
         ],
